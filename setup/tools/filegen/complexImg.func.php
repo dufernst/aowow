@@ -26,7 +26,7 @@ if (!CLI)
 
     // note: for the sake of simplicity, this function handles all images, that must be stitched together (which are mostly maps)
 
-    $reqDBC = ['talenttab', 'chrclasses', 'worldmapoverlay', 'worldmaparea'];
+    $reqDBC = [];
 
     function complexImg()
     {
@@ -280,6 +280,7 @@ if (!CLI)
         /* TalentTabs */
         /**************/
 
+        /*
         if ($modeMask & 0x01)
         {
             if (CLISetup::writeDir($destDir.'hunterpettalents/') && CLISetup::writeDir($destDir.'talents/backgrounds/'))
@@ -340,6 +341,7 @@ if (!CLI)
             else
                 $success = false;
         }
+        */
 
         /************/
         /* Worldmap */
@@ -366,8 +368,8 @@ if (!CLI)
                 3789 => 1, 1477 => 1, 3959 => 0, 3845 => 1, 2717 => 1, 3923 => 1, 3607 => 1, 3836 => 1, 2159 => 1, 4075 => 0
             );
 
-            $wmo = DB::Aowow()->select('SELECT *, worldMapAreaId AS ARRAY_KEY, id AS ARRAY_KEY2 FROM dbc_worldmapoverlay WHERE textureString <> ""');
-            $wma = DB::Aowow()->select('SELECT * FROM dbc_worldmaparea');
+            $wmo = DB::Aowow()->select('SELECT *, MapAreaID AS ARRAY_KEY, ID AS ARRAY_KEY2 FROM db_WorldMapOverlay_26972 WHERE TextureName <> ""');
+            $wma = DB::Aowow()->select('SELECT * FROM db_WorldMapArea_26972');
             if (!$wma || !$wmo)
             {
                 $success = false;
@@ -376,7 +378,7 @@ if (!CLI)
             }
 
             // fixups...
-            foreach ($wma as &$a)
+            /*foreach ($wma as &$a)
             {
                 if ($a['areaId'])
                     continue;
@@ -389,7 +391,7 @@ if (!CLI)
                     case 485: $a['areaId'] = -5; break;     // Northrend
                 }
             }
-            array_unshift($wma, ['id' => -1, 'areaId' => -1, 'nameINT' => 'World'], ['id' => -4, 'areaId' => -4, 'nameINT' => 'Cosmic']);
+            array_unshift($wma, ['id' => -1, 'areaId' => -1, 'nameINT' => 'World'], ['id' => -4, 'areaId' => -4, 'nameINT' => 'Cosmic']);*/
 
             $sumMaps = count(CLISetup::$localeIds) * count($wma);
 
@@ -445,9 +447,9 @@ if (!CLI)
                     $curMap   = $progressArea + count($wma) * $progressLoc;
                     $progress = ' - ' . str_pad($curMap.'/'.($sumMaps), 10) . str_pad('('.number_format($curMap * 100 / $sumMaps, 2).'%)', 9);
 
-                    $wmaId      = $areaEntry['id'];
-                    $zoneId     = $areaEntry['areaId'];
-                    $textureStr = $areaEntry['nameINT'];
+                    $wmaId      = $areaEntry['ID'];
+                    $zoneId     = $areaEntry['AreaID'];
+                    $textureStr = $areaEntry['AreaName'];
 
                     $path = $mapSrcDir.$textureStr;
                     if (!CLISetup::fileExists($path))
@@ -481,10 +483,10 @@ if (!CLI)
                                 $x = 0;
                                 while ($x < $row['w'])
                                 {
-                                    $img = $loadImageFile($path . '/' . $row['textureString'] . $i);
+                                    $img = $loadImageFile($path . '/' . $row['TextureName'] . $i);
                                     if (!$img)
                                     {
-                                        CLI::write(' - complexImg: tile '.$path.'/'.$row['textureString'].$i.'.blp missing.', CLI::LOG_ERROR);
+                                        CLI::write(' - complexImg: tile '.$path.'/'.$row['TextureName'].$i.'.blp missing.', CLI::LOG_ERROR);
                                         break 2;
                                     }
 
@@ -615,7 +617,7 @@ if (!CLI)
 
                             foreach ($mapDirs as $idx => $info)
                             {
-                                $outFile[$idx] = $destDir . sprintf($info[0], strtolower(Util::$localeStrings[$l]).'/') . $row['areaTableId'];
+                                $outFile[$idx] = $destDir . sprintf($info[0], strtolower(Util::$localeStrings[$l]).'/') . $row['ID'];
                                 if (!CLISetup::getOpt('force') && file_exists($outFile[$idx].'.'.$info[1]))
                                 {
                                     CLI::write($progress.' - file '.$outFile[$idx].'.'.$info[1].' was already processed');
@@ -656,6 +658,7 @@ if (!CLI)
         /* Credits */
         /***********/
 
+        /*
         if ($modeMask & 0x08)                               // optional tidbits (not used by default)
         {
             if (CLISetup::writeDir($destDir.'Interface/Glues/Credits/'))
@@ -744,6 +747,7 @@ if (!CLI)
             else
                 $success = false;
         }
+        */
 
         return $success;
     }

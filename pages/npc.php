@@ -76,40 +76,14 @@ class NpcPage extends GenericPage
                 $_altNPCs = new CreatureList(array(['id', array_keys($_altIds)]));
         }
 
-        if ($_ = DB::World()->selectCol('SELECT DISTINCT entry FROM vehicle_template_accessory WHERE accessory_entry = ?d', $this->typeId))
+        if ($_ = DB::World()->selectCol('SELECT DISTINCT EntryOrAura FROM vehicle_template_accessory WHERE accessory_entry = ?d', $this->typeId))
         {
             $vehicles = new CreatureList(array(['id', $_]));
             foreach ($vehicles->iterate() as $id => $__)
                 $accessory[] = [$id, $vehicles->getField('name', true)];
         }
 
-        // try to determine, if it's spawned in a dungeon or raid (shaky at best, if spawned by script)
         $mapType = 0;
-        if ($maps = DB::Aowow()->selectCol('SELECT DISTINCT areaId from ?_spawns WHERE type = ?d AND typeId = ?d', TYPE_NPC, $this->typeId))
-        {
-            if (count($maps) == 1)                          // should only exist in one instance
-            {
-                switch (DB::Aowow()->selectCell('SELECT `type` FROM ?_zones WHERE id = ?d', $maps[0]))
-                {
-                    case 2:
-                    case 5: $mapType = 1; break;
-                    case 3:
-                    case 7:
-                    case 8: $mapType = 2; break;
-                }
-            }
-        }
-        else if ($_altIds)                                  // not spawned, but has difficultyDummies
-        {
-            if (count($_altIds) > 1)                        // 3 or more version -> definitly raid (10/25 + hc)
-                $mapType = 2;
-            else                                            // 2 versions; may be Heroic (use this), but may also be 10/25-raid
-                $mapType = 1;
-        }
-
-
-
-
 
         /***********/
         /* Infobox */
@@ -673,32 +647,9 @@ class NpcPage extends GenericPage
              [LOOT_SKINNING,   $this->subject->getField('skinLootId'),       '$LANG.'.$skinTab[0],      $skinTab[1],     ['side', 'slot', 'reqlevel']]
         );
 
-        // temp: manually add loot for difficulty-versions
-        $langref = array(
-            "-2" => '$LANG.tab_heroic',
-            "-1" => '$LANG.tab_normal',
-               1 => '$$WH.sprintf(LANG.tab_normalX, 10)',
-               2 => '$$WH.sprintf(LANG.tab_normalX, 25)',
-               3 => '$$WH.sprintf(LANG.tab_heroicX, 10)',
-               4 => '$$WH.sprintf(LANG.tab_heroicX, 25)'
-        );
-
-        if ($_altIds)
-        {
-            $sourceFor[0][2] = $mapType == 1 ? $langref[-1] : $langref[1];
-            foreach ($_altNPCs->iterate() as $id => $__)
-            {
-                $mode = ($_altIds[$id] + 1) * ($mapType == 1 ? -1 : 1);
-                if ($lootGO = DB::Aowow()->selectRow('SELECT o.id, o.lootId, o.name_loc0, o.name_loc2, o.name_loc3, o.name_loc6, o.name_loc8 FROM ?_loot_link l JOIN ?_objects o ON o.id = l.objectId WHERE l.npcId = ?d', $id))
-                    array_splice($sourceFor, 1, 0, [[LOOT_GAMEOBJECT, $lootGO['lootId'], $langref[$mode], 'drops-object-'.abs($mode), [], 'note' => '$$WH.sprintf(LANG.lvnote_npcobjectsource, '.$lootGO['id'].', "'.Util::localizedString($lootGO, 'name').'")']]);
-                if ($lootId = $_altNPCs->getField('lootId'))
-                    array_splice($sourceFor, 1, 0, [[LOOT_CREATURE,   $lootId,           $langref[$mode], 'drops-'.abs($mode), []]]);
-            }
-        }
-
         if ($lootGOs = DB::Aowow()->select('SELECT o.id, IF(npcId < 0, 1, 0) AS modeDummy, o.lootId, o.name_loc0, o.name_loc2, o.name_loc3, o.name_loc6, o.name_loc8 FROM ?_loot_link l JOIN ?_objects o ON o.id = l.objectId WHERE ABS(l.npcId) = ?d', $this->typeId))
             foreach ($lootGOs as $idx => $lgo)
-                array_splice($sourceFor, 1, 0, [[LOOT_GAMEOBJECT, $lgo['lootId'], $mapType ? $langref[($mapType == 1 ? -1 : 1) + ($lgo['modeDummy'] ? 1 : 0)] : '$LANG.tab_drops', 'drops-object-'.$idx, [], 'note' => '$$WH.sprintf(LANG.lvnote_npcobjectsource, '.$lgo['id'].', "'.Util::localizedString($lgo, 'name').'")']]);
+                array_splice($sourceFor, 1, 0, [[LOOT_GAMEOBJECT, $lgo['lootId'], '$LANG.tab_drops', 'drops-object-'.$idx, [], 'note' => '$$WH.sprintf(LANG.lvnote_npcobjectsource, '.$lgo['id'].', "'.Util::localizedString($lgo, 'name').'")']]);
 
         $lootGOs = DB::World()->select('select SourceEntry, ConditionValue1, ConditionValue2 from conditions where SourceTypeOrReferenceId = 1 and SourceGroup = ?d and ConditionTypeOrReference = ?d', $this->typeId, CND_SKILL);
 
@@ -715,23 +666,33 @@ class NpcPage extends GenericPage
 
                 $this->extendWithConditions($creatureLoot, $lootGOs, $extraCols, $reqQuest);
 
-                $tabData = array(
-                    'data'      => array_values($creatureLoot->getResult()),
-                    'name'      => $sf[2],
-                    'id'        => $sf[3],
-                    'extraCols' => $extraCols,
-                    'sort'      => ['-percent', 'name'],
-                );
+                for ($i = 0; $i < 35; $i++)
+                {
+                    $tempData = array_values(array_filter($creatureLoot->getResult(), function($v) use($i) {
+                        return in_array($i, $v['mode']);
+                    }));
 
-                if (!empty($sf['note']))
-                    $tabData['note'] = $sf['note'];
-                else if ($sf[0] == LOOT_SKINNING)
-                    $tabData['note'] = '<b>'.Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill($skinTab[2], $this->subject->getField('maxLevel') * 5), true).'</b>';
+                    if (empty($tempData))
+                        continue;
 
-                if ($sf[4])
-                    $tabData['hiddenCols'] = $sf[4];
-
-                $this->lvTabs[] = ['item', $tabData];
+                    $tabData = array(
+                        'data'      => $tempData,
+                        'name'      => $sf[2]."_".$i,
+                        'id'        => $sf[3]."_".$i,
+                        'extraCols' => $extraCols,
+                        'sort'      => ['-percent', 'name'],
+                    );
+    
+                    if (!empty($sf['note']))
+                        $tabData['note'] = $sf['note'];
+                    else if ($sf[0] == LOOT_SKINNING)
+                        $tabData['note'] = '<b>'.Lang::formatSkillBreakpoints(Game::getBreakpointsForSkill($skinTab[2], $this->subject->getField('maxLevel') * 5), true).'</b>';
+    
+                    if ($sf[4])
+                        $tabData['hiddenCols'] = $sf[4];
+    
+                    $this->lvTabs[] = ['item', $tabData];
+                }
             }
         }
 
@@ -832,7 +793,7 @@ class NpcPage extends GenericPage
         }
 
         // tab: passengers
-        if ($_ = DB::World()->selectCol('SELECT accessory_entry AS ARRAY_KEY, GROUP_CONCAT(seat_id) FROM vehicle_template_accessory WHERE entry = ?d GROUP BY accessory_entry', $this->typeId))
+        if ($_ = DB::World()->selectCol('SELECT accessory_entry AS ARRAY_KEY, GROUP_CONCAT(seat_id) FROM vehicle_template_accessory WHERE EntryOrAura = ?d GROUP BY accessory_entry', $this->typeId))
         {
             $passengers = new CreatureList(array(['id', array_keys($_)]));
             if (!$passengers->error)
@@ -907,10 +868,8 @@ class NpcPage extends GenericPage
     private function getRepForId($entries, &$spillover)
     {
         $rows  = DB::World()->select('
-            SELECT creature_id AS npc, RewOnKillRepFaction1 AS faction, RewOnKillRepValue1 AS qty, MaxStanding1 AS maxRank, isTeamAward1 AS spillover
-            FROM creature_onkill_reputation WHERE creature_id IN (?a) AND RewOnKillRepFaction1 > 0 UNION
-            SELECT creature_id AS npc, RewOnKillRepFaction2 As faction, RewOnKillRepValue2 AS qty, MaxStanding2 AS maxRank, isTeamAward2 AS spillover
-            FROM creature_onkill_reputation WHERE creature_id IN (?a) AND RewOnKillRepFaction2 > 0',
+            SELECT creature_id AS npc, RewFaction AS faction, RewValue AS qty, MaxStanding AS maxRank, 0 AS spillover
+            FROM creature_onkill_reputation WHERE creature_id IN (?a) AND RewValue > 0',
             (array)$entries, (array)$entries
         );
 

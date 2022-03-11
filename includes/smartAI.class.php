@@ -33,11 +33,6 @@ class SmartAI
             SAI_ACTION_MOUNT_TO_ENTRY_OR_MODEL => [1 => $npcId]
         );
 
-        if ($npcGuids = DB::Aowow()->selectCol('SELECT guid FROM ?_spawns WHERE `type` = ?d AND `typeId` = ?d', TYPE_NPC, $npcId))
-            if ($groups = DB::World()->selectCol('SELECT `groupId` FROM spawn_group WHERE `spawnType` = 0 AND `spawnId` IN (?a)', $npcGuids))
-                foreach ($groups as $g)
-                    $lookup[SAI_ACTION_SPAWN_SPAWNGROUP][1] = $g;
-
         $result = self::getActionOwner($lookup, $typeFilter);
 
         // can skip lookups for SAI_ACTION_SUMMON_CREATURE_GROUP as creature_summon_groups already contains summoner info
@@ -56,11 +51,6 @@ class SmartAI
         $lookup = array(
             SAI_ACTION_SUMMON_GO => [1 => $objectId]
         );
-
-        if ($objGuids = DB::Aowow()->selectCol('SELECT guid FROM ?_spawns WHERE `type` = ?d AND `typeId` = ?d', TYPE_OBJECT, $objectId))
-            if ($groups = DB::World()->selectCol('SELECT `groupId` FROM spawn_group WHERE `spawnType` = 1 AND `spawnId` IN (?a)', $objGuids))
-                foreach ($groups as $g)
-                    $lookup[SAI_ACTION_SPAWN_SPAWNGROUP][1] = $g;
 
         return self::getActionOwner($lookup, $typeFilter);
     }
@@ -321,7 +311,7 @@ class SmartAI
         $this->entry    = $entry;
         $this->miscData = $miscData;
 
-        $raw = DB::World()->select('SELECT id, link, event_type, event_phase_mask, event_chance, event_flags, event_param1, event_param2, event_param3, event_param4, event_param5, action_type, action_param1, action_param2, action_param3, action_param4, action_param5, action_param6, target_type, target_param1, target_param2, target_param3, target_param4, target_x, target_y, target_z, target_o FROM smart_scripts WHERE entryorguid = ?d AND source_type = ?d ORDER BY id ASC', $this->entry, $this->srcType);
+        $raw = DB::World()->select('SELECT id, link, event_type, event_phase_mask, event_chance, event_flags, event_param1, event_param2, event_param3, event_param4, action_type, action_param1, action_param2, action_param3, action_param4, action_param5, action_param6, target_type, target_param1, target_param2, target_param3, target_x, target_y, target_z, target_o FROM smart_scripts WHERE entryorguid = ?d AND source_type = ?d ORDER BY id ASC', $this->entry, $this->srcType);
         foreach ($raw as $r)
         {
             $this->rawData[$r['id']] = array(
@@ -332,7 +322,7 @@ class SmartAI
                     'phases' => Util::mask2bits($r['event_phase_mask'], 1) ?: [0],
                     'chance' => $r['event_chance'],
                     'flags'  => $r['event_flags'],
-                    'param'  => [$r['event_param1'], $r['event_param2'], $r['event_param3'], $r['event_param4'], $r['event_param5']]
+                    'param'  => [$r['event_param1'], $r['event_param2'], $r['event_param3'], $r['event_param4']]
                 ),
                 'action' => array(
                     'type'  => $r['action_type'],
@@ -340,7 +330,7 @@ class SmartAI
                 ),
                 'target' => array(
                     'type'  => $r['target_type'],
-                    'param' => [$r['target_param1'], $r['target_param2'], $r['target_param3'], $r['target_param4']],
+                    'param' => [$r['target_param1'], $r['target_param2'], $r['target_param3']],
                     'pos'   => [$r['target_x'], $r['target_y'], $r['target_z'], $r['target_o']]
                 )
             );

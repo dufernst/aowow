@@ -11,7 +11,7 @@ if (!CLI)
     // quest icons from GossipFrame have an alphaChannel that cannot be handled by this script
     // lfgFrame/lfgIcon*.blp .. candidates for zonePage, but in general too detailed to scale them down from 128 to 56, 36, ect
 
-    $reqDBC = ['holidays', 'spellicon', 'itemdisplayinfo'];
+    $reqDBC = [];
 
     function simpleImg()
     {

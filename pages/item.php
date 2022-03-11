@@ -419,7 +419,7 @@ class ItemPage extends genericPage
         /**************/
 
         // tab: createdBy (perfect item specific)
-        if ($perfItem = DB::World()->select('SELECT *, spellId AS ARRAY_KEY FROM skill_perfect_item_template WHERE perfectItemType = ?d', $this->typeId))
+        /*if ($perfItem = DB::World()->select('SELECT *, spellId AS ARRAY_KEY FROM skill_perfect_item_template WHERE perfectItemType = ?d', $this->typeId))
         {
             $perfSpells = new SpellList(array(['id', array_column($perfItem, 'spellId')]));
             if (!$perfSpells->error)
@@ -441,7 +441,7 @@ class ItemPage extends genericPage
                     'extraCols' => ['$Listview.extraCols.percent', '$Listview.extraCols.condition']
                 )];
             }
-        }
+        }*/
 
         // tabs: this item is contained in..
         $lootTabs  = new Loot();

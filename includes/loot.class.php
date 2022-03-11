@@ -90,16 +90,16 @@ class Loot
         foreach ($refs as $rId => $ref)
         {
             // check for possible database inconsistencies
-            if (!$ref['chance'] && !$ref['isGrouped'])
+            if (!$ref['ChanceOrQuestChance'] && !$ref['isGrouped'])
                 trigger_error('Loot by Item: Ungrouped Item/Ref '.$ref['item'].' has 0% chance assigned!', E_USER_WARNING);
 
             if ($ref['isGrouped'] && $ref['sumChance'] > 100)
                 trigger_error('Loot by Item: Group with Item/Ref '.$ref['item'].' has '.number_format($ref['sumChance'], 2).'% total chance! Some items cannot drop!', E_USER_WARNING);
 
-            if ($ref['isGrouped'] && $ref['sumChance'] >= 100 && !$ref['chance'])
+            if ($ref['isGrouped'] && $ref['sumChance'] >= 100 && !$ref['ChanceOrQuestChance'])
                 trigger_error('Loot by Item: Item/Ref '.$ref['item'].' with adaptive chance cannot drop. Group already at 100%!', E_USER_WARNING);
 
-            $chance = abs($ref['chance'] ?: (100 - $ref['sumChance']) / $ref['nZeroItems']) / 100;
+            $chance = abs($ref['ChanceOrQuestChance'] ?: (100 - $ref['sumChance']) / $ref['nZeroItems']) / 100;
 
             // apply inherited chanceMods
             if (isset($this->chanceMods[$ref['item']]))
@@ -154,24 +154,22 @@ class Loot
         foreach ($rows as $entry)
         {
             $set = array(
-                'quest'         => $entry['QuestRequired'],
-                'group'         => $entry['GroupId'],
+                'quest'         => $entry['ChanceOrQuestChance'] < 0 ? 1 : 0,
+                'group'         => $entry['groupid'],
                 'parentRef'     => $tableName == LOOT_REFERENCE ? $lootId : 0,
                 'realChanceMod' => $baseChance,
                 'groupChance'   => 0
             );
 
-            // if ($entry['LootMode'] > 1)
-            // {
-                $buff = [];
-                for ($i = 0; $i < 8; $i++)
-                    if ($entry['LootMode'] & (1 << $i))
-                        $buff[] = $i + 1;
-
-                $set['mode'] = implode(', ', $buff);
-            // }
-            // else
-                // $set['mode'] = 0;
+            $set['mode'] = [];
+            if ($entry['lootmode'] > 0)
+            {
+                for ($i = 0; $i < 35; $i++)
+                    if ($entry['lootmode'] & (1 << $i))
+                        $set['mode'][] = $i + 1;
+            }
+            else
+                $set['mode'][] = 0;
 
             /*
                 modes:{"mode":8,"4":{"count":7173,"outof":17619},"8":{"count":7173,"outof":10684}}
@@ -186,52 +184,52 @@ class Loot
                               '25man heroic
             */
 
-            if ($entry['Reference'])
+            if ($entry['mincountOrRef'] < 0)
             {
                 // bandaid.. remove when propperly handling lootmodes
-                if (!in_array($entry['Reference'], $handledRefs))
+                if (!in_array(abs($entry['mincountOrRef']), $handledRefs))
                 {                                                                                                   // todo (high): find out, why i used this in the first place. (don't do drugs, kids)
-                    [$data, $raw] = self::getByContainerRecursive(LOOT_REFERENCE, $entry['Reference'], $handledRefs, /*$entry['GroupId'],*/ 0, $entry['Chance'] / 100);
+                    [$data, $raw] = self::getByContainerRecursive(LOOT_REFERENCE, abs($entry['mincountOrRef']), $handledRefs, /*$entry['GroupId'],*/ 0, abs($entry['ChanceOrQuestChance']) / 100);
 
-                    $handledRefs[] = $entry['Reference'];
+                    $handledRefs[] = abs($entry['mincountOrRef']);
 
                     $loot     = array_merge($loot, $data);
                     $rawItems = array_merge($rawItems, $raw);
                 }
-                $set['reference']  = $entry['Reference'];
-                $set['multiplier'] = $entry['MaxCount'];
+                $set['reference']  = abs($entry['mincountOrRef']);
+                $set['multiplier'] = $entry['maxcount'];
             }
             else
             {
-                $rawItems[]     = $entry['Item'];
-                $set['content'] = $entry['Item'];
-                $set['min']     = $entry['MinCount'];
-                $set['max']     = $entry['MaxCount'];
+                $rawItems[]     = $entry['item'];
+                $set['content'] = $entry['item'];
+                $set['min']     = $entry['mincountOrRef'];
+                $set['max']     = $entry['maxcount'];
             }
 
-            if (!isset($groupChances[$entry['GroupId']]))
+            if (!isset($groupChances[$entry['groupid']]))
             {
-                $groupChances[$entry['GroupId']] = 0;
-                $nGroupEquals[$entry['GroupId']] = 0;
+                $groupChances[$entry['groupid']] = 0;
+                $nGroupEquals[$entry['groupid']] = 0;
             }
 
             if ($set['quest'] || !$set['group'])
-                $set['groupChance'] = $entry['Chance'];
-            else if ($entry['GroupId'] && !$entry['Chance'])
+                $set['groupChance'] = abs($entry['ChanceOrQuestChance']);
+            else if ($entry['groupid'] && !abs($entry['ChanceOrQuestChance']))
             {
-                $nGroupEquals[$entry['GroupId']]++;
-                $set['groupChance'] = &$groupChances[$entry['GroupId']];
+                $nGroupEquals[$entry['groupid']]++;
+                $set['groupChance'] = &$groupChances[$entry['groupid']];
             }
-            else if ($entry['GroupId'] && $entry['Chance'])
+            else if ($entry['groupid'] && abs($entry['ChanceOrQuestChance']))
             {
-                $set['groupChance'] = $entry['Chance'];
+                $set['groupChance'] = abs($entry['ChanceOrQuestChance']);
 
-                if (!$entry['Reference'])
+                if ($entry['mincountOrRef'] >= 0)
                 {
-                    if (empty($groupChances[$entry['GroupId']]))
-                        $groupChances[$entry['GroupId']] = 0;
+                    if (empty($groupChances[$entry['groupid']]))
+                        $groupChances[$entry['groupid']] = 0;
 
-                    $groupChances[$entry['GroupId']] += $entry['Chance'];
+                    $groupChances[$entry['groupid']] += abs($entry['ChanceOrQuestChance']);
                 }
             }
             else                                            // shouldn't have happened
@@ -411,14 +409,14 @@ class Loot
         $refResults = [];
         $query      =   'SELECT
                             lt1.entry AS ARRAY_KEY,
-                            IF(lt1.reference = 0, lt1.item, lt1.reference) AS item,
-                            lt1.chance,
-                            SUM(IF(lt2.chance = 0, 1, 0)) AS nZeroItems,
-                            SUM(IF(lt2.reference = 0, lt2.chance, 0)) AS sumChance,
+                            IF(lt1.mincountOrRef >= 0, lt1.item, abs(lt1.mincountOrRef)) AS item,
+                            lt1.ChanceOrQuestChance,
+                            SUM(IF(lt2.ChanceOrQuestChance = 0, 1, 0)) AS nZeroItems,
+                            SUM(IF(lt2.mincountOrRef >= 0, lt2.ChanceOrQuestChance, 0)) AS sumChance,
                             IF(lt1.groupid > 0, 1, 0) AS isGrouped,
-                            IF(lt1.reference = 0, lt1.mincount, 1) AS min,
-                            IF(lt1.reference = 0, lt1.maxcount, 1) AS max,
-                            IF(lt1.reference > 0, lt1.maxcount, 1) AS multiplier
+                            IF(lt1.mincountOrRef >= 0, lt1.mincountOrRef, 1) AS min,
+                            IF(lt1.mincountOrRef >= 0, lt1.maxcount, 1) AS max,
+                            IF(lt1.mincountOrRef < 0, lt1.maxcount, 1) AS multiplier
                         FROM
                             ?# lt1
                         LEFT JOIN
@@ -431,18 +429,22 @@ class Loot
             get references containing the item
         */
         $newRefs = DB::World()->select(
-            sprintf($query, 'lt1.item = ?d AND lt1.reference = 0'),
+            sprintf($query, 'lt1.item = ?d'),
             LOOT_REFERENCE, LOOT_REFERENCE,
             $this->entry
         );
+
+        $func = function(int $value): int {
+            return $value * -1;
+        };
 
         while ($newRefs)
         {
             $curRefs = $newRefs;
             $newRefs = DB::World()->select(
-                sprintf($query, 'lt1.reference IN (?a)'),
+                sprintf($query, 'lt1.mincountOrRef IN (?a)'),
                 LOOT_REFERENCE, LOOT_REFERENCE,
-                array_keys($curRefs)
+                array_map($func, array_keys($curRefs))
             );
 
             $refResults += $this->calcChance($curRefs, array_column($newRefs, 'item'));
@@ -457,9 +459,9 @@ class Loot
                 continue;
 
             $result = $this->calcChance(DB::World()->select(
-                sprintf($query, '{lt1.reference IN (?a) OR }(lt1.reference = 0 AND lt1.item = ?d)'),
+                sprintf($query, '{lt1.mincountOrRef IN (?a) OR }(lt1.mincountOrRef >= 0 AND lt1.item = ?d)'),
                 $this->lootTemplates[$i], $this->lootTemplates[$i],
-                $refResults ? array_keys($refResults) : DBSIMPLE_SKIP,
+                $refResults ? array_map($func, array_keys($refResults)) : DBSIMPLE_SKIP,
                 $this->entry
             ));
 
@@ -533,7 +535,7 @@ class Loot
 
                     // achievement part
                     $conditions = array(['itemExtra', $this->entry]);
-                    if ($ar = DB::World()->selectCol('SELECT ID FROM achievement_reward WHERE ItemID = ?d{ OR MailTemplateID IN (?a)}', $this->entry, $ids ?: DBSIMPLE_SKIP))
+                    if ($ar = DB::World()->selectCol('SELECT entry FROM achievement_reward WHERE item = ?d', $this->entry))
                         array_push($conditions, ['id', $ar], 'OR');
 
                     $srcObj = new AchievementList($conditions);

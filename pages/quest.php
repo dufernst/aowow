@@ -950,7 +950,7 @@ class QuestPage extends GenericPage
         );
 
         // factionchange-equivalent
-        if ($pendant = DB::World()->selectCell('SELECT IF(horde_id = ?d, alliance_id, -horde_id) FROM player_factionchange_quests WHERE alliance_id = ?d OR horde_id = ?d', $this->typeId, $this->typeId, $this->typeId))
+        /*if ($pendant = DB::World()->selectCell('SELECT IF(horde_id = ?d, alliance_id, -horde_id) FROM player_factionchange_quests WHERE alliance_id = ?d OR horde_id = ?d', $this->typeId, $this->typeId, $this->typeId))
         {
             $altQuest = new QuestList(array(['id', abs($pendant)]));
             if (!$altQuest->error)
@@ -963,7 +963,7 @@ class QuestPage extends GenericPage
                     $pendant > 0 ? Lang::game('si', 1) : Lang::game('si', 2)
                 );
             }
-        }
+        }*/
 
         /**************/
         /* Extra Tabs */
@@ -994,9 +994,9 @@ class QuestPage extends GenericPage
         }
 
         // tab: spawning pool (for the swarm)
-        if ($qp = DB::World()->selectCol('SELECT qpm2.questId FROM quest_pool_members qpm1 JOIN quest_pool_members qpm2 ON qpm1.poolId = qpm2.poolId WHERE qpm1.questId = ?d', $this->typeId))
+        if ($qp = DB::World()->selectCol('SELECT qpm2.entry FROM pool_quest qpm1 JOIN pool_quest qpm2 ON qpm1.pool_entry = qpm2.pool_entry WHERE qpm1.entry = ?d', $this->typeId))
         {
-            $max = DB::World()->selectCell('SELECT numActive FROM quest_pool_template qpt JOIN quest_pool_members qpm ON qpm.poolId = qpt.poolId WHERE qpm.questId = ?d', $this->typeId);
+            $max = DB::World()->selectCell('SELECT numActive FROM pool_template qpt JOIN pool_quest qpm ON qpm.pool_entry = qpt.entry WHERE qpm.entry = ?d', $this->typeId);
             $pooledQuests = new QuestList(array(['id', $qp]));
             if (!$pooledQuests->error)
             {

@@ -348,7 +348,7 @@ class Game
         $quotes   = [];
         $soundIds = [];
 
-        $quoteSrc = DB::World()->select('
+        /*$quoteSrc = DB::World()->select('
             SELECT
                 ct.GroupID AS ARRAY_KEY, ct.ID as ARRAY_KEY2,
                 ct.`Type` AS `talkType`,
@@ -435,7 +435,7 @@ class Game
 
             if ($group)
                 $quotes[$grp] = $group;
-        }
+        }*/
 
         return [$quotes, $nQuotes, $soundIds];
     }

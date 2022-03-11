@@ -472,10 +472,10 @@ class QuestListFilter extends Filter
         'na'    => [FILTER_V_REGEX, '/[\p{C};%\\\\]/ui',                             false], // name / text - only printable chars, no delimiter
         'ex'    => [FILTER_V_EQUAL, 'on',                                            false], // also match subname
         'ma'    => [FILTER_V_EQUAL, 1,                                               false], // match any / all filter
-        'minle' => [FILTER_V_RANGE, [1, 99],                                         false], // min quest level
-        'maxle' => [FILTER_V_RANGE, [1, 99],                                         false], // max quest level
-        'minrl' => [FILTER_V_RANGE, [1, 99],                                         false], // min required level
-        'maxrl' => [FILTER_V_RANGE, [1, 99],                                         false], // max required level
+        'minle' => [FILTER_V_RANGE, [1, 110],                                        false], // min quest level
+        'maxle' => [FILTER_V_RANGE, [1, 110],                                        false], // max quest level
+        'minrl' => [FILTER_V_RANGE, [1, 110],                                        false], // min required level
+        'maxrl' => [FILTER_V_RANGE, [1, 110],                                        false], // max required level
         'si'    => [FILTER_V_LIST,  [-2, -1, 1, 2, 3],                               false], // siede
         'ty'    => [FILTER_V_LIST,  [0, 1, 21, 41, 62, [81, 85], 88, 89],            true ]  // type
     );
